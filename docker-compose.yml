@@ -1,0 +1,95 @@
+# Task 4 - Role-Based Microservice API Ecosystem with an Asynchronous Message Broker
+#
+# Three separate networks:
+#   public : the only network reachable from your machine (gateway port 3000)
+#   data   : internal - gateway & worker <-> postgres, redis
+#   broker : internal - gateway & worker <-> rabbitmq
+# Postgres, Redis and RabbitMQ publish NO ports, so they are unreachable from outside Docker.
+
+services:
+  gateway:
+    build: ./gateway
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me-please}
+      JWT_EXPIRES_IN: 1h
+      DATABASE_URL: postgresql://app:app@postgres:5432/backend_tasks
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      REDIS_URL: redis://redis:6379
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-ChangeMe-Admin-123}
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks: [public, data, broker]
+
+  worker:
+    build: ./worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://app:app@postgres:5432/backend_tasks
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks: [data, broker]
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: backend_tasks
+    volumes:
+      - pgdata_v2:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d backend_tasks"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    networks: [data]
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    restart: unless-stopped
+    # To open the management UI (http://localhost:15672, guest/guest) for a demo, also attach
+    # this service to the "public" network and uncomment:
+    # ports: ["15672:15672"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+    networks: [broker]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [data]
+
+networks:
+  public:
+  data:
+    internal: true
+  broker:
+    internal: true
+
+volumes:
+  pgdata_v2:

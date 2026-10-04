@@ -1,0 +1,16 @@
+{
+  "name": "task4-worker",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/worker.js",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/worker.js",
+    "test": "node --test \"tests/*.test.js\""
+  },
+  "dependencies": {
+    "amqplib": "^0.10.5",
+    "pg": "^8.13.1",
+    "redis": "^4.7.0"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "task4-microservice-ecosystem",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Task 4 - convenience scripts for the automated tests",
+  "scripts": {
+    "test:worker": "npm --prefix worker test",
+    "test:gateway": "npm --prefix gateway test",
+    "test:e2e": "node --test tests/e2e.test.js",
+    "test:all": "sh tests/run-all.sh"
+  }
+}
